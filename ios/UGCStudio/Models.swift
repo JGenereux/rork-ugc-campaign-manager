@@ -187,6 +187,64 @@ nonisolated struct Campaign: Identifiable, Hashable, Codable {
         return min(1.0, Double(videos.count) / Double(targetVideoCount))
     }
 
+    /// For `monthlyRecurring`: the most recent occurrence of `day` on or before
+    /// today. For other schedules: `createdAt` (period == lifetime).
+    var currentPeriodStart: Date {
+        let cal = Calendar.current
+        switch schedule {
+        case .monthlyRecurring(let day):
+            let now = Date()
+            var comps = cal.dateComponents([.year, .month], from: now)
+            comps.day = min(max(day, 1), 28)
+            let thisMonthStart = cal.date(from: comps) ?? now
+            if thisMonthStart <= now { return thisMonthStart }
+            return cal.date(byAdding: .month, value: -1, to: thisMonthStart) ?? thisMonthStart
+        case .oneTime, .ongoing:
+            return createdAt
+        }
+    }
+
+    /// Number of takes recorded since the start of the current period.
+    /// For non-recurring schedules, this equals `videos.count`.
+    var takesInCurrentPeriod: Int {
+        switch schedule {
+        case .monthlyRecurring:
+            let start = currentPeriodStart
+            return videos.filter { $0.date >= start }.count
+        case .oneTime, .ongoing:
+            return videos.count
+        }
+    }
+
+    /// What we display in the primary "Takes" cell of cards / detail.
+    /// Recurring → period count, others → lifetime total.
+    var displayTakeCount: Int {
+        switch schedule {
+        case .monthlyRecurring: return takesInCurrentPeriod
+        case .oneTime, .ongoing: return videos.count
+        }
+    }
+
+    /// Caps label ("THIS MONTH", "TOTAL", "ONGOING") for the takes metric.
+    var takesCellLabel: String {
+        switch schedule {
+        case .monthlyRecurring: return "Takes · this period"
+        case .oneTime: return "Takes"
+        case .ongoing: return "Takes"
+        }
+    }
+
+    /// Progress relative to the period target (where applicable).
+    var periodProgress: Double {
+        guard targetVideoCount > 0 else { return 0 }
+        switch schedule {
+        case .monthlyRecurring:
+            return min(1.0, Double(takesInCurrentPeriod) / Double(targetVideoCount))
+        case .oneTime, .ongoing:
+            return min(1.0, Double(videos.count) / Double(targetVideoCount))
+        }
+    }
+
     init(
         id: UUID,
         brand: String,

@@ -216,7 +216,7 @@ final class ApifyService {
     private func fetchInstagram(handle: String) async throws -> (HandleStats, [SocialPost]) {
         let input: [String: Any] = [
             "usernames": [handle],
-            "resultsLimit": 12,
+            "resultsLimit": 30,
         ]
         let items = try await runActor(instagramActor, input: input)
         let profile = items.first ?? [:]
@@ -260,7 +260,7 @@ final class ApifyService {
     private func fetchTikTok(handle: String) async throws -> (HandleStats, [SocialPost]) {
         let input: [String: Any] = [
             "profiles": [handle],
-            "resultsPerPage": 12,
+            "resultsPerPage": 30,
             "shouldDownloadVideos": false,
             "shouldDownloadCovers": false,
         ]
@@ -306,7 +306,7 @@ final class ApifyService {
         let url = "https://www.youtube.com/@\(handle)"
         let input: [String: Any] = [
             "startUrls": [["url": url]],
-            "maxResults": 12,
+            "maxResults": 30,
             "maxResultsShorts": 0,
             "maxResultStreams": 0,
         ]

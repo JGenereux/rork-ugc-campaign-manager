@@ -14,20 +14,26 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         intro
 
-                        DataSection(title: "Apify · social scraping") {
+                        DataSection(
+                            title: "Apify · social scraping",
+                            trailing: AnyView(envBadge(isBundled: !Config.EXPO_PUBLIC_APIFY_TOKEN.isEmpty))
+                        ) {
                             tokenField(
                                 placeholder: "apify_api_...",
                                 value: $apifyToken,
-                                helper: "Used to fetch follower counts, post metrics, and per-handle analytics. Get a token at apify.com → Settings → Integrations.",
+                                helper: "If `EXPO_PUBLIC_APIFY_TOKEN` is set on Rork, the app uses that automatically. The field below overrides it on this device only.",
                                 masked: false
                             )
                         }
 
-                        DataSection(title: "OpenAI · script generation") {
+                        DataSection(
+                            title: "OpenAI · script generation",
+                            trailing: AnyView(envBadge(isBundled: false))
+                        ) {
                             tokenField(
                                 placeholder: "sk-...",
                                 value: $openAIToken,
-                                helper: "Used to generate UGC scripts via gpt-4o-mini (very low cost: ~$0.0001 per script). Get a key at platform.openai.com → API keys.",
+                                helper: "OpenAI generates UGC scripts via gpt-4o-mini (~$0.0001 per script).\n\nNOTE: `EXPO_OPENAI_API_KEY` on Rork is server-side only — it is not bundled into the iOS app. To inject at build time, rename it to `EXPO_PUBLIC_OPENAI_API_KEY`. Otherwise, paste your key here.",
                                 masked: true
                             )
                         }
@@ -83,6 +89,14 @@ struct SettingsView: View {
                 .font(TypeScale.body(13))
                 .foregroundStyle(Palette.textSecondary)
         }
+    }
+
+    private func envBadge(isBundled: Bool) -> some View {
+        MonoChip(
+            text: isBundled ? "Env: bundled" : "Settings only",
+            color: isBundled ? Palette.signalGreen : Palette.textTertiary,
+            bg: Palette.surface
+        )
     }
 
     private func tokenField(placeholder: String, value: Binding<String>, helper: String, masked: Bool) -> some View {

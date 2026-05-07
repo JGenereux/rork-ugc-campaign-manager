@@ -174,16 +174,19 @@ struct CampaignsListView: View {
 
     private var statsBar: some View {
         let totalTakes = store.campaigns.flatMap(\.videos).count
-        let posted = store.campaigns.flatMap(\.videos).filter { $0.isPosted }.count
-        let target = store.campaigns.reduce(0) { $0 + $1.targetVideoCount }
+        let posted = store.campaigns.flatMap(\.videos).filter(\.isPosted).count
+        let active = store.campaigns.filter { $0.status != .archived && $0.status != .paid }.count
+        let thisPeriod = store.campaigns.reduce(0) { $0 + $1.takesInCurrentPeriod }
         return HStack(spacing: 0) {
             MetricCell(label: "Campaigns", value: "\(store.campaigns.count)")
             verticalRule
-            MetricCell(label: "Takes", value: "\(totalTakes)")
+            MetricCell(label: "Active", value: "\(active)")
             verticalRule
-            MetricCell(label: "Posted", value: "\(posted)")
+            MetricCell(label: "Takes total", value: "\(totalTakes)")
             verticalRule
-            MetricCell(label: "Target", value: "\(target)")
+            MetricCell(label: "This period", value: "\(thisPeriod)", valueColor: Palette.signalAmber)
+            verticalRule
+            MetricCell(label: "Posted", value: "\(posted)", valueColor: posted > 0 ? Palette.signalGreen : Palette.textPrimary)
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
@@ -288,19 +291,19 @@ struct CampaignCard: View {
 
             // Metrics row
             HStack(spacing: 0) {
-                MetricCell(label: "Takes", value: "\(campaign.videos.count)/\(campaign.targetVideoCount)")
+                MetricCell(label: campaign.takesCellLabel, value: "\(campaign.displayTakeCount)")
                 Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 30)
                 MetricCell(label: "Platforms", value: platformsLabel)
                 Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 30)
                 MetricCell(label: "Due", value: campaign.schedule.shortLabel)
                 Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 30)
-                MetricCell(label: "Progress", value: percentLabel, valueColor: campaign.status.color)
+                MetricCell(label: "Posted", value: "\(postedCount)", valueColor: postedCount > 0 ? Palette.signalGreen : Palette.textPrimary)
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
 
-            // Edge progress
-            EdgeProgress(value: campaign.videoProgress, color: campaign.status.color)
+            // Edge progress (period-aware)
+            EdgeProgress(value: campaign.periodProgress, color: campaign.status.color)
         }
         .background(Palette.surface)
         .overlay(Rectangle().stroke(Palette.hairline, lineWidth: 0.5))
@@ -311,8 +314,7 @@ struct CampaignCard: View {
         return codes.isEmpty ? "—" : codes.joined(separator: "·")
     }
 
-    private var percentLabel: String {
-        let pct = Int((campaign.videoProgress * 100).rounded())
-        return "\(pct)%"
+    private var postedCount: Int {
+        campaign.videos.filter(\.isPosted).count
     }
 }

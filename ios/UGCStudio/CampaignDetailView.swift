@@ -104,25 +104,51 @@ struct CampaignDetailView: View {
     // MARK: - Metrics bar
 
     private var metricsBar: some View {
-        let postedCount = campaign.videos.filter { $0.isPosted }.count
+        let postedCount = campaign.videos.filter(\.isPosted).count
         let totalViews = campaign.videos.reduce(0) { $0 + $1.views }
-        return HStack(spacing: 0) {
-            MetricCell(label: "Takes", value: "\(campaign.videos.count)/\(campaign.targetVideoCount)")
-            Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
-            MetricCell(label: "Posted", value: "\(postedCount)")
-            Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
-            MetricCell(label: "Views", value: Fmt.compact(totalViews))
-            Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
-            MetricCell(label: "Progress", value: progressLabel, valueColor: campaign.status.color)
+        let totalLikes = campaign.videos.reduce(0) { $0 + $1.likes }
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                MetricCell(label: campaign.takesCellLabel, value: "\(campaign.displayTakeCount)")
+                Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
+                MetricCell(label: "Total takes", value: "\(campaign.videos.count)")
+                Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
+                MetricCell(label: "Posted", value: "\(postedCount)", valueColor: postedCount > 0 ? Palette.signalGreen : Palette.textPrimary)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            Hairline()
+            HStack(spacing: 0) {
+                MetricCell(label: "Views", value: Fmt.compact(totalViews))
+                Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
+                MetricCell(label: "Likes", value: Fmt.compact(totalLikes))
+                Rectangle().fill(Palette.hairline).frame(width: 0.5, height: 32)
+                MetricCell(label: targetLabel, value: targetValue, valueColor: campaign.status.color)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            EdgeProgress(value: campaign.periodProgress, color: campaign.status.color)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 14)
         .background(Palette.surface)
         .overlay(Rectangle().stroke(Palette.hairline, lineWidth: 0.5))
     }
 
-    private var progressLabel: String {
-        "\(Int((campaign.videoProgress * 100).rounded()))%"
+    private var targetLabel: String {
+        switch campaign.schedule {
+        case .monthlyRecurring: return "Target / month"
+        case .oneTime: return "Target"
+        case .ongoing: return "Schedule"
+        }
+    }
+
+    private var targetValue: String {
+        switch campaign.schedule {
+        case .monthlyRecurring, .oneTime:
+            let pct = Int((campaign.periodProgress * 100).rounded())
+            return "\(campaign.targetVideoCount) · \(pct)%"
+        case .ongoing:
+            return "Ongoing"
+        }
     }
 
     // MARK: - Handles
@@ -183,19 +209,33 @@ struct CampaignDetailView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Posts feed
+    // MARK: - Top live posts
 
     private var postsSection: some View {
-        DataSection(
-            title: "Live Posts (\(allCampaignPosts.count))",
+        let top = allCampaignPosts.sorted { $0.views > $1.views }.prefix(5).map { $0 }
+        return DataSection(
+            title: "Top Live Posts",
             trailing: AnyView(
-                Text(handles.isEmpty ? "—" : "swipe →")
+                Text("\(allCampaignPosts.count) cached")
                     .font(TypeScale.caps(9))
                     .tracking(1.2)
                     .foregroundStyle(Palette.textTertiary)
             )
         ) {
-            PostsFeed(posts: allCampaignPosts)
+            if top.isEmpty {
+                Text(handles.isEmpty
+                     ? "Connect at least one handle to fetch live posts."
+                     : "No posts cached yet. Pull to refresh.")
+                    .font(TypeScale.body(12))
+                    .foregroundStyle(Palette.textTertiary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(Array(top.enumerated()), id: \.element.id) { idx, post in
+                        TopPostRow(post: post, rank: idx + 1)
+                    }
+                }
+            }
         }
     }
 
@@ -203,7 +243,7 @@ struct CampaignDetailView: View {
 
     private var takesSection: some View {
         DataSection(
-            title: "Takes (\(campaign.videos.count)/\(campaign.targetVideoCount))",
+            title: "Takes (\(campaign.videos.count))",
             trailing: AnyView(
                 Button {
                     showingRecorder = true
