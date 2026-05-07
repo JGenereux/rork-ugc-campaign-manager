@@ -20,16 +20,15 @@ struct AllPostsView: View {
     @State private var platformFilter: String? = nil   // nil = all
     @State private var handleFilter: String? = nil
 
-    private var allHandles: [(platform: String, handle: String)] {
+    private var allHandles: [HandleRef] {
         var seen: Set<String> = []
-        var out: [(String, String)] = []
+        var out: [HandleRef] = []
         for c in store.campaigns {
             for h in c.nonEmptyHandles {
-                let cleaned = h.handle.trimmingCharacters(in: CharacterSet(charactersIn: "@ "))
-                let k = "\(h.platform.lowercased())|\(cleaned.lowercased())"
-                if seen.contains(k) { continue }
-                seen.insert(k)
-                out.append((h.platform, cleaned))
+                let ref = HandleRef(platform: h.platform, handle: h.cleanedHandle)
+                if seen.contains(ref.id) { continue }
+                seen.insert(ref.id)
+                out.append(ref)
             }
         }
         return out
@@ -64,14 +63,14 @@ struct AllPostsView: View {
         return list
     }
 
-    private var filteredHandles: [String] {
+    private var filteredHandles: [HandleRef] {
         var seen: Set<String> = []
-        var out: [String] = []
+        var out: [HandleRef] = []
         for h in allHandles {
             if let p = platformFilter, p != h.platform { continue }
-            if !seen.contains(h.handle) {
-                seen.insert(h.handle)
-                out.append(h.handle)
+            if !seen.contains(h.id) {
+                seen.insert(h.id)
+                out.append(h)
             }
         }
         return out
@@ -164,13 +163,13 @@ struct AllPostsView: View {
                 FilterChip(label: "all handles", selected: handleFilter == nil) {
                     handleFilter = nil
                 }
-                ForEach(filteredHandles, id: \.self) { h in
+                ForEach(filteredHandles) { h in
                     FilterChip(
-                        label: "@\(h)",
-                        selected: handleFilter == h,
-                        color: Palette.signalCyan
+                        label: "\(PlatformName.code(h.platform))·@\(h.handle)",
+                        selected: handleFilter == h.handle,
+                        color: PlatformName.color(h.platform)
                     ) {
-                        handleFilter = (handleFilter == h) ? nil : h
+                        handleFilter = (handleFilter == h.handle) ? nil : h.handle
                     }
                 }
             }

@@ -119,7 +119,7 @@ final class ApifyService {
         Task { await fetch(platform: platform, handle: cleaned, key: k) }
     }
 
-    func refreshAll(handles: [(platform: String, handle: String)]) {
+    func refreshAll(handles: [HandleRef]) {
         for h in handles { refresh(platform: h.platform, handle: h.handle) }
     }
 

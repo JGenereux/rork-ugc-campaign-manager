@@ -4,16 +4,15 @@ struct InsightsView: View {
     @Bindable var store: CampaignStore
     @State private var apify = ApifyService.shared
 
-    private var allHandles: [(platform: String, handle: String)] {
+    private var allHandles: [HandleRef] {
         var seen: Set<String> = []
-        var out: [(String, String)] = []
+        var out: [HandleRef] = []
         for c in store.campaigns {
             for h in c.nonEmptyHandles {
-                let cleaned = h.handle.trimmingCharacters(in: CharacterSet(charactersIn: "@ "))
-                let k = "\(h.platform.lowercased())|\(cleaned.lowercased())"
-                if seen.contains(k) { continue }
-                seen.insert(k)
-                out.append((h.platform, cleaned))
+                let ref = HandleRef(platform: h.platform, handle: h.cleanedHandle)
+                if seen.contains(ref.id) { continue }
+                seen.insert(ref.id)
+                out.append(ref)
             }
         }
         return out
@@ -221,7 +220,7 @@ struct InsightsView: View {
     private var handlesSection: some View {
         DataSection(title: "Per-account") {
             VStack(spacing: 6) {
-                ForEach(allHandles, id: \.handle) { item in
+                ForEach(allHandles) { item in
                     HandleStatRow(platform: item.platform, handle: item.handle)
                 }
             }

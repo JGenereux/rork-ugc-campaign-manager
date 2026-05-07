@@ -168,16 +168,16 @@ nonisolated struct Campaign: Identifiable, Hashable, Codable {
         return out
     }
 
-    var nonEmptyHandles: [(platform: String, handle: String)] {
-        var out: [(String, String)] = []
+    var nonEmptyHandles: [HandleRef] {
+        var out: [HandleRef] = []
         for h in instagramHandles where !h.trimmingCharacters(in: .whitespaces).isEmpty {
-            out.append((PlatformName.instagram, h))
+            out.append(HandleRef(platform: PlatformName.instagram, handle: h))
         }
         for h in tiktokHandles where !h.trimmingCharacters(in: .whitespaces).isEmpty {
-            out.append((PlatformName.tiktok, h))
+            out.append(HandleRef(platform: PlatformName.tiktok, handle: h))
         }
         for h in youtubeHandles where !h.trimmingCharacters(in: .whitespaces).isEmpty {
-            out.append((PlatformName.youtube, h))
+            out.append(HandleRef(platform: PlatformName.youtube, handle: h))
         }
         return out
     }
@@ -335,6 +335,17 @@ nonisolated struct Campaign: Identifiable, Hashable, Codable {
         try c.encode(scripts, forKey: .scripts)
         try c.encode(accent, forKey: .accent)
         try c.encode(createdAt, forKey: .createdAt)
+    }
+}
+
+// MARK: - Handle reference (platform + handle, uniquely identifiable)
+
+nonisolated struct HandleRef: Hashable, Identifiable {
+    let platform: String
+    let handle: String
+    var id: String { "\(platform.lowercased())|\(handle.lowercased())" }
+    var cleanedHandle: String {
+        handle.trimmingCharacters(in: CharacterSet(charactersIn: "@ "))
     }
 }
 

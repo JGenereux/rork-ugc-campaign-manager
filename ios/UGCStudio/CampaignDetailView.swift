@@ -14,9 +14,9 @@ struct CampaignDetailView: View {
     @State private var generationError: String?
     @State private var pendingDeleteScriptID: UUID?
 
-    private var handles: [(platform: String, handle: String)] {
-        campaign.nonEmptyHandles.map { (p, h) in
-            (p, h.trimmingCharacters(in: CharacterSet(charactersIn: "@ ")))
+    private var handles: [HandleRef] {
+        campaign.nonEmptyHandles.map {
+            HandleRef(platform: $0.platform, handle: $0.cleanedHandle)
         }
     }
 
@@ -179,7 +179,7 @@ struct CampaignDetailView: View {
                     .padding(.vertical, 8)
             } else {
                 VStack(spacing: 6) {
-                    ForEach(handles, id: \.handle) { item in
+                    ForEach(handles) { item in
                         HandleStatRow(platform: item.platform, handle: item.handle)
                     }
                 }
