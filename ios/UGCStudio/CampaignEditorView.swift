@@ -260,7 +260,7 @@ struct CampaignEditorView: View {
         section(title: "\(title) Accounts") {
             VStack(spacing: 0) {
                 if handles.wrappedValue.isEmpty {
-                    fieldRow(label: title) {
+                    fieldRow(label: PlatformName.code(title)) {
                         Text("None connected")
                             .font(TypeScale.body(12))
                             .foregroundStyle(Palette.textTertiary)
@@ -268,7 +268,7 @@ struct CampaignEditorView: View {
                     }
                 } else {
                     ForEach(handles.wrappedValue.indices, id: \.self) { i in
-                        fieldRow(label: "@\(i+1)") {
+                        fieldRow(label: "\(PlatformName.code(title))·\(i+1)") {
                             HStack(spacing: 6) {
                                 TextField(placeholder, text: Binding(
                                     get: { handles.wrappedValue[i] },

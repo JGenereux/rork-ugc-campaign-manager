@@ -435,6 +435,20 @@ final class CampaignStore {
         campaigns[cIdx].videos[vIdx].postedURL = (cleaned?.isEmpty == false) ? cleaned : nil
     }
 
+    /// Remove takes that lack a recorded file AND have no metrics — these
+    /// indicate a failed save or migration debris.
+    @discardableResult
+    func cleanEmptyVideos(in campaignID: UUID) -> Int {
+        guard let cIdx = campaigns.firstIndex(where: { $0.id == campaignID }) else { return 0 }
+        let before = campaigns[cIdx].videos.count
+        campaigns[cIdx].videos.removeAll { v in
+            let hasFile = v.fileURL.flatMap { FileManager.default.fileExists(atPath: $0.path) } ?? false
+            let hasMetric = v.views > 0 || v.likes > 0 || v.comments > 0
+            return !hasFile && !hasMetric
+        }
+        return before - campaigns[cIdx].videos.count
+    }
+
     func mergePostMetrics(videoID: UUID, in campaignID: UUID, views: Int, likes: Int, comments: Int) {
         guard let cIdx = campaigns.firstIndex(where: { $0.id == campaignID }) else { return }
         guard let vIdx = campaigns[cIdx].videos.firstIndex(where: { $0.id == videoID }) else { return }

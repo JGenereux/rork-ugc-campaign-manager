@@ -245,17 +245,31 @@ struct CampaignDetailView: View {
         DataSection(
             title: "Takes (\(campaign.videos.count))",
             trailing: AnyView(
-                Button {
-                    showingRecorder = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                        Text("NEW").tracking(1.2)
+                HStack(spacing: 10) {
+                    Menu {
+                        Button {
+                            let removed = store.cleanEmptyVideos(in: campaign.id)
+                            if removed > 0 { /* no-op feedback for now */ }
+                        } label: { Label("Remove empty takes", systemImage: "trash.slash") }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Palette.textSecondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
-                    .font(TypeScale.caps(10))
-                    .foregroundStyle(Palette.signalBlue)
+                    Button {
+                        showingRecorder = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                            Text("NEW").tracking(1.2)
+                        }
+                        .font(TypeScale.caps(10))
+                        .foregroundStyle(Palette.signalBlue)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             )
         ) {
             if campaign.videos.isEmpty {

@@ -28,12 +28,12 @@ struct SettingsView: View {
 
                         DataSection(
                             title: "OpenAI · script generation",
-                            trailing: AnyView(envBadge(isBundled: false))
+                            trailing: AnyView(envBadge(isBundled: !Config.EXPO_PUBLIC_OPENAI_API_KEY.isEmpty))
                         ) {
                             tokenField(
                                 placeholder: "sk-...",
                                 value: $openAIToken,
-                                helper: "OpenAI generates UGC scripts via gpt-4o-mini (~$0.0001 per script).\n\nNOTE: `EXPO_OPENAI_API_KEY` on Rork is server-side only — it is not bundled into the iOS app. To inject at build time, rename it to `EXPO_PUBLIC_OPENAI_API_KEY`. Otherwise, paste your key here.",
+                                helper: "If `EXPO_PUBLIC_OPENAI_API_KEY` is set on Rork, the app uses that automatically. Generates UGC scripts via gpt-4o-mini (~$0.0001 per script). The field below overrides it on this device only.",
                                 masked: true
                             )
                         }

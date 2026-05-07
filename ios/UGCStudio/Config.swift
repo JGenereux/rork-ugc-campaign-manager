@@ -5,4 +5,5 @@ import Foundation
 // here — they will be wiped. Use TokenStore for runtime-settable tokens.
 enum Config {
     static let EXPO_PUBLIC_APIFY_TOKEN: String = ""
+    static let EXPO_PUBLIC_OPENAI_API_KEY: String = ""
 }

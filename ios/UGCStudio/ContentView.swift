@@ -3,11 +3,29 @@ import UIKit
 
 nonisolated enum AppTab: Hashable { case campaigns, record, insights }
 
+enum EditorRoute: Identifiable {
+    case new
+    case edit(Campaign)
+
+    var id: String {
+        switch self {
+        case .new: return "new"
+        case .edit(let c): return c.id.uuidString
+        }
+    }
+
+    var initial: Campaign? {
+        switch self {
+        case .new: return nil
+        case .edit(let c): return c
+        }
+    }
+}
+
 struct ContentView: View {
     @State private var store = CampaignStore.shared
     @State private var selectedTab: AppTab = .campaigns
-    @State private var showingEditor: Bool = false
-    @State private var editingCampaign: Campaign?
+    @State private var editorRoute: EditorRoute?
     @State private var showingSettings: Bool = false
 
     init() {
@@ -19,8 +37,7 @@ struct ContentView: View {
             NavigationStack {
                 CampaignsListView(
                     store: store,
-                    showingEditor: $showingEditor,
-                    editingCampaign: $editingCampaign,
+                    editorRoute: $editorRoute,
                     showingSettings: $showingSettings
                 )
             }
@@ -41,8 +58,8 @@ struct ContentView: View {
         }
         .tint(Palette.signalBlue)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingEditor) {
-            CampaignEditorView(initial: editingCampaign) { saved in
+        .sheet(item: $editorRoute) { route in
+            CampaignEditorView(initial: route.initial) { saved in
                 store.upsert(saved)
             }
         }

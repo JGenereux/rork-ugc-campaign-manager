@@ -58,6 +58,10 @@ struct InsightsView: View {
                     totalsBlock
                     averagesBlock
                     studioBlock
+                    NavigationLink(value: "all-posts") {
+                        allPostsCTA
+                    }
+                    .buttonStyle(.plain)
                     topPostsSection
                     if !allHandles.isEmpty {
                         handlesSection
@@ -72,9 +76,40 @@ struct InsightsView: View {
         }
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: String.self) { route in
+            if route == "all-posts" {
+                AllPostsView(store: store)
+            }
+        }
         .onAppear {
             for h in allHandles { apify.loadIfNeeded(platform: h.platform, handle: h.handle) }
         }
+    }
+
+    private var allPostsCTA: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "list.bullet.rectangle")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.black)
+                .frame(width: 32, height: 32)
+                .background(Palette.signalBlue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Browse all posts")
+                    .font(TypeScale.title(14))
+                    .foregroundStyle(Palette.textPrimary)
+                Text("\(totalPosts) cached across \(allHandles.count) handles")
+                    .font(TypeScale.body(11))
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Palette.textSecondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Palette.surface)
+        .overlay(Rectangle().stroke(Palette.hairline, lineWidth: 0.5))
     }
 
     private var header: some View {

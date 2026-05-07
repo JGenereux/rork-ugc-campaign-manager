@@ -134,11 +134,22 @@ final class ApifyService {
             default: return
             }
             statsCache[key] = result.0
-            postsCache[key] = result.1
+            postsCache[key] = filterMeaningful(result.1)
             saveToDisk()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    /// Drop stub posts: actors occasionally emit empty placeholders. A post
+    /// must have at least one of: caption, post URL, or any non-zero metric.
+    private func filterMeaningful(_ posts: [SocialPost]) -> [SocialPost] {
+        posts.filter { p in
+            let hasCaption = !p.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let hasURL = (p.postURL?.isEmpty == false)
+            let hasMetric = p.views > 0 || p.likes > 0 || p.comments > 0
+            return hasCaption || hasURL || hasMetric
         }
     }
 
@@ -216,7 +227,7 @@ final class ApifyService {
     private func fetchInstagram(handle: String) async throws -> (HandleStats, [SocialPost]) {
         let input: [String: Any] = [
             "usernames": [handle],
-            "resultsLimit": 30,
+            "resultsLimit": 100,
         ]
         let items = try await runActor(instagramActor, input: input)
         let profile = items.first ?? [:]
@@ -260,7 +271,7 @@ final class ApifyService {
     private func fetchTikTok(handle: String) async throws -> (HandleStats, [SocialPost]) {
         let input: [String: Any] = [
             "profiles": [handle],
-            "resultsPerPage": 30,
+            "resultsPerPage": 100,
             "shouldDownloadVideos": false,
             "shouldDownloadCovers": false,
         ]
@@ -306,30 +317,41 @@ final class ApifyService {
         let url = "https://www.youtube.com/@\(handle)"
         let input: [String: Any] = [
             "startUrls": [["url": url]],
-            "maxResults": 30,
-            "maxResultsShorts": 0,
+            "maxResults": 100,
+            "maxResultsShorts": 100,
             "maxResultStreams": 0,
         ]
         let items = try await runActor(youtubeActor, input: input)
         let channel = items.first ?? [:]
         let followers = int(channel["numberOfSubscribers"])
         let postsTotal = int(channel["videosCount"])
-        let videos = (channel["videos"] as? [[String: Any]]) ?? items
-        let plays = videos.map { int($0["viewCount"]) }.reduce(0, +)
-        let likesSum = videos.map { int($0["likes"]) }.reduce(0, +)
-        let denom = max(videos.count, 1)
+
+        // The YouTube actor sometimes returns the channel object first with
+        // `videos`/`shorts` arrays inside, sometimes returns videos as the
+        // top-level dataset items. Cover both shapes.
+        var combined: [[String: Any]] = []
+        if let regular = channel["videos"] as? [[String: Any]] { combined.append(contentsOf: regular) }
+        if let shorts = channel["shorts"] as? [[String: Any]] { combined.append(contentsOf: shorts) }
+        if combined.isEmpty {
+            // top-level items may themselves be videos (no channel wrapping)
+            combined = items.filter { $0["title"] != nil || $0["url"] != nil }
+        }
+
+        let plays = combined.map { int($0["viewCount"]) }.reduce(0, +)
+        let likesSum = combined.map { int($0["likes"]) }.reduce(0, +)
+        let denom = max(combined.count, 1)
         let avgViews = plays / denom
         let avgLikes = likesSum / denom
         let engagement = followers > 0 ? Double(avgLikes) / Double(followers) * 100 : 0
         let stats = HandleStats(
             platform: PlatformName.youtube, handle: handle,
-            followers: followers, posts: postsTotal,
+            followers: followers, posts: max(postsTotal, combined.count),
             avgViews: avgViews, avgLikes: avgLikes,
             engagementRate: engagement, fetchedAt: Date()
         )
 
-        let socialPosts: [SocialPost] = videos.map { v in
-            let pid = str(v["id"]) ?? UUID().uuidString
+        let socialPosts: [SocialPost] = combined.map { v in
+            let pid = str(v["id"]) ?? str(v["url"]) ?? UUID().uuidString
             return SocialPost(
                 id: "youtube|\(handle)|\(pid)",
                 platform: PlatformName.youtube,

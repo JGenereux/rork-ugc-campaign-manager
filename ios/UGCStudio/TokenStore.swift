@@ -37,6 +37,11 @@ enum TokenStore {
         return Config.EXPO_PUBLIC_APIFY_TOKEN
     }
 
-    /// OpenAI: only sourced from in-app Settings.
-    static var resolvedOpenAIToken: String { openAIToken }
+    /// OpenAI token: prefer user-set value in Settings, fall back to a
+    /// build-time injected `Config.EXPO_PUBLIC_OPENAI_API_KEY` if present.
+    static var resolvedOpenAIToken: String {
+        let stored = openAIToken
+        if !stored.isEmpty { return stored }
+        return Config.EXPO_PUBLIC_OPENAI_API_KEY
+    }
 }

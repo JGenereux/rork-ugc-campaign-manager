@@ -47,7 +47,7 @@ struct VideoRow: View {
                             .submitLabel(.done)
                             .onSubmit { commitTitle() }
                     } else {
-                        Text(video.title)
+                        Text(displayTitle)
                             .font(TypeScale.title(14))
                             .foregroundStyle(Palette.textPrimary)
                             .lineLimit(1)
@@ -140,6 +140,12 @@ struct VideoRow: View {
             get: { saveResultMessage != nil },
             set: { if !$0 { saveResultMessage = nil } }
         )) { Button("OK", role: .cancel) {} }
+    }
+
+    private var displayTitle: String {
+        let trimmed = video.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        return "Take #\(index)"
     }
 
     private func commitTitle() {

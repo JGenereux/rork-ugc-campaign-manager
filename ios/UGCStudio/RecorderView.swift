@@ -209,6 +209,8 @@ struct RecorderView: View {
         do {
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: url, to: destination)
+            // Verify the file actually landed before we add a UGCVideo entry.
+            guard FileManager.default.fileExists(atPath: destination.path) else { return }
             let campaign = store.campaigns.first(where: { $0.id == id })
             let title = "Take \((campaign?.videos.count ?? 0) + 1)"
             let video = UGCVideo(
@@ -222,7 +224,7 @@ struct RecorderView: View {
             )
             store.addVideo(video, toCampaign: id)
         } catch {
-            // file move failed; ignore
+            // File move failed; do not insert a phantom entry.
         }
     }
 
@@ -331,7 +333,13 @@ struct AssignTakeSheet: View {
         let fileName = "take-\(UUID().uuidString).mov"
         let destination = URL.documentsDirectory.appending(path: fileName)
         try? FileManager.default.removeItem(at: destination)
-        try? FileManager.default.moveItem(at: fileURL, to: destination)
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: destination)
+        } catch {
+            dismiss()
+            return
+        }
+        guard FileManager.default.fileExists(atPath: destination.path) else { dismiss(); return }
         let count = store.campaigns.first(where: { $0.id == cid })?.videos.count ?? 0
         let video = UGCVideo(
             id: UUID(),

@@ -31,8 +31,7 @@ enum CampaignSort: String, CaseIterable, Identifiable {
 
 struct CampaignsListView: View {
     @Bindable var store: CampaignStore
-    @Binding var showingEditor: Bool
-    @Binding var editingCampaign: Campaign?
+    @Binding var editorRoute: EditorRoute?
     @Binding var showingSettings: Bool
 
     @State private var query: String = ""
@@ -100,8 +99,7 @@ struct CampaignsListView: View {
                                 .buttonStyle(.plain)
                                 .contextMenu {
                                     Button {
-                                        editingCampaign = campaign
-                                        showingEditor = true
+                                        editorRoute = .edit(campaign)
                                     } label: { Label("Edit", systemImage: "pencil") }
                                     Button(role: .destructive) {
                                         pendingDeleteID = campaign.id
@@ -120,8 +118,7 @@ struct CampaignsListView: View {
         .navigationDestination(for: UUID.self) { id in
             if let index = store.campaigns.firstIndex(where: { $0.id == id }) {
                 CampaignDetailView(campaign: $store.campaigns[index], store: store) {
-                    editingCampaign = store.campaigns[index]
-                    showingEditor = true
+                    editorRoute = .edit(store.campaigns[index])
                 }
             }
         }
@@ -134,8 +131,7 @@ struct CampaignsListView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    editingCampaign = nil
-                    showingEditor = true
+                    editorRoute = .new
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))
