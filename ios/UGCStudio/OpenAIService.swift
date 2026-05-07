@@ -25,7 +25,7 @@ final class OpenAIService {
     // Cheap and good enough for short script copy.
     private let model = "gpt-4o-mini"
     private let session: URLSession = .shared
-    private var token: String { Config.openAIToken }
+    private var token: String { TokenStore.resolvedOpenAIToken }
 
     var isConfigured: Bool { !token.isEmpty }
 

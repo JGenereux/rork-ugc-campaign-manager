@@ -2,8 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var apifyToken: String = Config.apifyToken
-    @State private var openAIToken: String = Config.openAIToken
+    @State private var apifyToken: String = TokenStore.apifyToken
+    @State private var openAIToken: String = TokenStore.openAIToken
     @State private var savedFlash: Bool = false
 
     var body: some View {
@@ -56,8 +56,8 @@ struct SettingsView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Config.setApifyToken(apifyToken)
-                        Config.setOpenAIToken(openAIToken)
+                        TokenStore.setApifyToken(apifyToken)
+                        TokenStore.setOpenAIToken(openAIToken)
                         withAnimation(.easeOut(duration: 0.2)) { savedFlash = true }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                             withAnimation { savedFlash = false }

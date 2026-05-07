@@ -53,7 +53,7 @@ final class ApifyService {
     private let tiktokActor = "clockworks~tiktok-profile-scraper"
     private let youtubeActor = "streamers~youtube-channel-scraper"
 
-    private var token: String { Config.apifyToken }
+    private var token: String { TokenStore.resolvedApifyToken }
 
     private var cacheURL: URL {
         URL.documentsDirectory.appending(path: "apify-cache.json")
