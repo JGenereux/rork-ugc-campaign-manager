@@ -403,6 +403,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "UGC Studio uses the camera so creators can record campaign videos directly in the app.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "UGC Studio uses the microphone to capture audio while recording campaign videos.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "UGC Studio saves recorded takes to your Photos library when you tap Save to Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -438,6 +439,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "UGC Studio uses the camera so creators can record campaign videos directly in the app.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "UGC Studio uses the microphone to capture audio while recording campaign videos.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "UGC Studio saves recorded takes to your Photos library when you tap Save to Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
