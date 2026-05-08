@@ -234,8 +234,14 @@ final class ApifyService {
         let followers = int(profile["followersCount"])
         let postsTotal = int(profile["postsCount"])
         let latest = (profile["latestPosts"] as? [[String: Any]]) ?? []
+        // Reels / Clips return `videoViewCount`; older feed videos may return
+        // `videoPlayCount`. Prefer whichever is set.
+        func postViews(_ post: [String: Any]) -> Int {
+            let v = int(post["videoViewCount"])
+            return v > 0 ? v : int(post["videoPlayCount"])
+        }
         let likes = latest.map { int($0["likesCount"]) }.reduce(0, +)
-        let plays = latest.map { int($0["videoPlayCount"]) }.reduce(0, +)
+        let plays = latest.map { postViews($0) }.reduce(0, +)
         let denom = max(latest.count, 1)
         let avgLikes = likes / denom
         let avgViews = plays > 0 ? plays / denom : avgLikes * 8
@@ -258,7 +264,7 @@ final class ApifyService {
                 thumbnailURL: str(post["displayUrl"]) ?? str(post["thumbnailSrc"]),
                 postURL: url,
                 postedAt: date(unix: post["timestamp"]) ?? date(unix: post["takenAtTimestamp"]) ?? dateISO(post["timestamp"]),
-                views: int(post["videoPlayCount"]),
+                views: postViews(post),
                 likes: int(post["likesCount"]),
                 comments: int(post["commentsCount"])
             )
