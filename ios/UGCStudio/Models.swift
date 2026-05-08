@@ -245,20 +245,26 @@ nonisolated struct Campaign: Identifiable, Hashable, Codable {
         }
     }
 
+    /// Cross-posted uploads are treated as the same video, so we use the
+    /// highest per-platform count instead of summing TikTok + Instagram +
+    /// YouTube together.
+    func liveVideoCount(using posts: [SocialPost], since startDate: Date? = nil) -> Int {
+        let filteredPosts = posts.filter { post in
+            guard let startDate else { return true }
+            guard let postedAt = post.postedAt else { return false }
+            return postedAt >= startDate
+        }
+        let countsByPlatform = Dictionary(grouping: filteredPosts, by: { $0.platform.lowercased() })
+            .mapValues { Set($0.map(\.id)).count }
+        return countsByPlatform.values.max() ?? 0
+    }
+
     /// For monthly campaigns, target hit should come from live posts in the
-    /// current period rather than recorded takes. Cross-posted uploads are
-    /// treated as the same video, so we use the highest per-platform count
-    /// instead of summing TikTok + Instagram + YouTube together.
+    /// current period rather than recorded takes.
     func targetHitCount(using posts: [SocialPost]) -> Int {
         switch schedule {
         case .monthlyRecurring:
-            let periodPosts = posts.filter { post in
-                guard let postedAt = post.postedAt else { return false }
-                return postedAt >= currentPeriodStart
-            }
-            let countsByPlatform = Dictionary(grouping: periodPosts, by: { $0.platform.lowercased() })
-                .mapValues { Set($0.map(\.id)).count }
-            return countsByPlatform.values.max() ?? 0
+            return liveVideoCount(using: posts, since: currentPeriodStart)
         case .oneTime, .ongoing:
             return videos.count
         }

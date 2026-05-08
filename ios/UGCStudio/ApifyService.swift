@@ -49,7 +49,8 @@ final class ApifyService {
     private let session: URLSession = .shared
 
     // Apify actor IDs (public scrapers).
-    private let instagramActor = "apify~instagram-profile-scraper"
+    private let instagramProfileActor = "apify~instagram-profile-scraper"
+    private let instagramPostsActor = "apify~instagram-scraper"
     private let tiktokActor = "clockworks~tiktok-profile-scraper"
     private let youtubeActor = "streamers~youtube-channel-scraper"
 
@@ -225,35 +226,50 @@ final class ApifyService {
     // MARK: - Instagram
 
     private func fetchInstagram(handle: String) async throws -> (HandleStats, [SocialPost]) {
-        let input: [String: Any] = [
+        let profileInput: [String: Any] = [
             "usernames": [handle],
             "resultsLimit": 100,
         ]
-        let items = try await runActor(instagramActor, input: input)
-        let profile = items.first ?? [:]
+        let postsInput: [String: Any] = [
+            "directUrls": ["https://www.instagram.com/\(handle)/"],
+            "resultsType": "posts",
+            "resultsLimit": 200,
+            "searchType": "user",
+        ]
+
+        async let profileItems = runActor(instagramProfileActor, input: profileInput)
+        async let postItems = runActor(instagramPostsActor, input: postsInput)
+
+        let profileResults = try await profileItems
+        let posts = try await postItems
+        let profile = profileResults.first ?? [:]
         let followers = int(profile["followersCount"])
         let postsTotal = int(profile["postsCount"])
-        let latest = (profile["latestPosts"] as? [[String: Any]]) ?? []
-        // Reels / Clips return `videoViewCount`; older feed videos may return
-        // `videoPlayCount`. Prefer whichever is set.
+        // The profile actor only exposes latestPosts preview items. The full
+        // feed actor returns the complete post list and also exposes
+        // `videoPlayCount`, which matches Instagram's reel play count better
+        // than the preview actor's `videoViewCount`.
         func postViews(_ post: [String: Any]) -> Int {
-            let v = int(post["videoViewCount"])
-            return v > 0 ? v : int(post["videoPlayCount"])
+            let playCount = int(post["videoPlayCount"])
+            if playCount > 0 { return playCount }
+            let viewCount = int(post["videoViewCount"])
+            if viewCount > 0 { return viewCount }
+            return 0
         }
-        let likes = latest.map { int($0["likesCount"]) }.reduce(0, +)
-        let plays = latest.map { postViews($0) }.reduce(0, +)
-        let denom = max(latest.count, 1)
+        let likes = posts.map { int($0["likesCount"]) }.reduce(0, +)
+        let plays = posts.map { postViews($0) }.reduce(0, +)
+        let denom = max(posts.count, 1)
         let avgLikes = likes / denom
         let avgViews = plays > 0 ? plays / denom : avgLikes * 8
         let engagement = followers > 0 ? Double(avgLikes) / Double(followers) * 100 : 0
         let stats = HandleStats(
             platform: PlatformName.instagram, handle: handle,
-            followers: followers, posts: postsTotal,
+            followers: followers, posts: max(postsTotal, posts.count),
             avgViews: avgViews, avgLikes: avgLikes,
             engagementRate: engagement, fetchedAt: Date()
         )
 
-        let socialPosts: [SocialPost] = latest.map { post in
+        let socialPosts: [SocialPost] = posts.map { post in
             let pid = str(post["id"]) ?? str(post["shortCode"]) ?? UUID().uuidString
             let url = str(post["url"]) ?? str(post["shortCode"]).map { "https://www.instagram.com/p/\($0)/" }
             return SocialPost(

@@ -33,6 +33,10 @@ struct CampaignDetailView: View {
         campaign.targetProgress(using: allCampaignPosts)
     }
 
+    private var livePostedCount: Int {
+        campaign.liveVideoCount(using: allCampaignPosts)
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
@@ -112,9 +116,9 @@ struct CampaignDetailView: View {
     // MARK: - Metrics bar
 
     private var metricsBar: some View {
-        let postedCount = campaign.videos.filter(\.isPosted).count
-        let totalViews = campaign.videos.reduce(0) { $0 + $1.views }
-        let totalLikes = campaign.videos.reduce(0) { $0 + $1.likes }
+        let postedCount = livePostedCount
+        let totalViews = allCampaignPosts.reduce(0) { $0 + $1.views }
+        let totalLikes = allCampaignPosts.reduce(0) { $0 + $1.likes }
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
                 MetricCell(label: campaign.takesCellLabel, value: "\(campaign.displayTakeCount)")

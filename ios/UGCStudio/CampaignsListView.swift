@@ -86,6 +86,10 @@ struct CampaignsListView: View {
         campaign.targetProgress(using: campaignPosts(campaign))
     }
 
+    private func postedValue(_ campaign: Campaign) -> Int {
+        campaign.liveVideoCount(using: campaignPosts(campaign))
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
@@ -107,7 +111,8 @@ struct CampaignsListView: View {
                                 NavigationLink(value: campaign.id) {
                                     CampaignCard(
                                         campaign: campaign,
-                                        progress: progressValue(campaign)
+                                        progress: progressValue(campaign),
+                                        postedCount: postedValue(campaign)
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -191,7 +196,9 @@ struct CampaignsListView: View {
 
     private var statsBar: some View {
         let totalTakes = store.campaigns.flatMap(\.videos).count
-        let posted = store.campaigns.flatMap(\.videos).filter(\.isPosted).count
+        let posted = store.campaigns.reduce(0) { total, campaign in
+            total + postedValue(campaign)
+        }
         let active = store.campaigns.filter { $0.status != .archived && $0.status != .paid }.count
         let thisPeriod = store.campaigns.reduce(0) { total, campaign in
             total + campaign.targetHitCount(using: campaignPosts(campaign))
@@ -284,6 +291,7 @@ struct FilterChip: View {
 struct CampaignCard: View {
     let campaign: Campaign
     let progress: Double
+    let postedCount: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -334,7 +342,4 @@ struct CampaignCard: View {
         return codes.isEmpty ? "—" : codes.joined(separator: "·")
     }
 
-    private var postedCount: Int {
-        campaign.videos.filter(\.isPosted).count
-    }
 }
