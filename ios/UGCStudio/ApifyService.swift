@@ -323,18 +323,34 @@ final class ApifyService {
         ]
         let items = try await runActor(youtubeActor, input: input)
         let channel = items.first ?? [:]
-        let followers = int(channel["numberOfSubscribers"])
-        let postsTotal = int(channel["videosCount"])
+
+        // Empty / error stubs: actor returns a single item with an `error`
+        // field (e.g. NO_VIDEOS) when the channel has no posts. Sub-fields
+        // like `aboutChannelInfo` may carry follower/avatar info but no
+        // videos. Treat as zero-post profile.
+        let aboutInfo = (channel["aboutChannelInfo"] as? [String: Any]) ?? [:]
+        let isErrorStub = (channel["error"] as? String) != nil
+        let followersRaw = int(channel["numberOfSubscribers"])
+        let followers = followersRaw > 0 ? followersRaw : int(aboutInfo["numberOfSubscribers"])
+        let postsRaw = int(channel["videosCount"])
+        let postsTotal = postsRaw > 0 ? postsRaw : int(aboutInfo["channelTotalVideos"])
 
         // The YouTube actor sometimes returns the channel object first with
         // `videos`/`shorts` arrays inside, sometimes returns videos as the
-        // top-level dataset items. Cover both shapes.
+        // top-level dataset items. Cover both shapes — but only when the
+        // first item is NOT an error stub.
         var combined: [[String: Any]] = []
-        if let regular = channel["videos"] as? [[String: Any]] { combined.append(contentsOf: regular) }
-        if let shorts = channel["shorts"] as? [[String: Any]] { combined.append(contentsOf: shorts) }
-        if combined.isEmpty {
-            // top-level items may themselves be videos (no channel wrapping)
-            combined = items.filter { $0["title"] != nil || $0["url"] != nil }
+        if !isErrorStub {
+            if let regular = channel["videos"] as? [[String: Any]] { combined.append(contentsOf: regular) }
+            if let shorts = channel["shorts"] as? [[String: Any]] { combined.append(contentsOf: shorts) }
+            if combined.isEmpty {
+                // Top-level items may themselves be videos. Require a title
+                // field — the channel/about row has a `url` but no `title`,
+                // so a url-only filter would let it through as a phantom.
+                combined = items.filter {
+                    str($0["title"]) != nil && ($0["error"] as? String) == nil
+                }
+            }
         }
 
         let plays = combined.map { int($0["viewCount"]) }.reduce(0, +)
