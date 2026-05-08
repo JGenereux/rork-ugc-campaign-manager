@@ -34,6 +34,7 @@ struct CampaignsListView: View {
     @Binding var editorRoute: EditorRoute?
     @Binding var showingSettings: Bool
 
+    @State private var apify = ApifyService.shared
     @State private var query: String = ""
     @State private var filter: CampaignFilter = .all
     @State private var sort: CampaignSort = .recent
@@ -60,7 +61,7 @@ struct CampaignsListView: View {
         case .dueAsc:
             list.sort { dueValue($0) < dueValue($1) }
         case .progressDesc:
-            list.sort { $0.videoProgress > $1.videoProgress }
+            list.sort { progressValue($0) > progressValue($1) }
         case .recent:
             list.sort { $0.createdAt > $1.createdAt }
         }
@@ -73,6 +74,16 @@ struct CampaignsListView: View {
         case .monthlyRecurring: return Date().timeIntervalSince1970
         case .ongoing: return .greatestFiniteMagnitude
         }
+    }
+
+    private func campaignPosts(_ campaign: Campaign) -> [SocialPost] {
+        campaign.nonEmptyHandles
+            .map { HandleRef(platform: $0.platform, handle: $0.cleanedHandle) }
+            .flatMap { apify.posts(platform: $0.platform, handle: $0.handle) }
+    }
+
+    private func progressValue(_ campaign: Campaign) -> Double {
+        campaign.targetProgress(using: campaignPosts(campaign))
     }
 
     var body: some View {
@@ -94,7 +105,10 @@ struct CampaignsListView: View {
                         VStack(spacing: 10) {
                             ForEach(filtered) { campaign in
                                 NavigationLink(value: campaign.id) {
-                                    CampaignCard(campaign: campaign)
+                                    CampaignCard(
+                                        campaign: campaign,
+                                        progress: progressValue(campaign)
+                                    )
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
@@ -115,6 +129,13 @@ struct CampaignsListView: View {
             }
         }
         .searchable(text: $query, prompt: "Search brands or campaigns")
+        .onAppear {
+            for campaign in store.campaigns {
+                for handle in campaign.nonEmptyHandles {
+                    apify.loadIfNeeded(platform: handle.platform, handle: handle.cleanedHandle)
+                }
+            }
+        }
         .navigationDestination(for: UUID.self) { id in
             if let index = store.campaigns.firstIndex(where: { $0.id == id }) {
                 CampaignDetailView(campaign: $store.campaigns[index], store: store) {
@@ -172,7 +193,9 @@ struct CampaignsListView: View {
         let totalTakes = store.campaigns.flatMap(\.videos).count
         let posted = store.campaigns.flatMap(\.videos).filter(\.isPosted).count
         let active = store.campaigns.filter { $0.status != .archived && $0.status != .paid }.count
-        let thisPeriod = store.campaigns.reduce(0) { $0 + $1.takesInCurrentPeriod }
+        let thisPeriod = store.campaigns.reduce(0) { total, campaign in
+            total + campaign.targetHitCount(using: campaignPosts(campaign))
+        }
         return HStack(spacing: 0) {
             MetricCell(label: "Campaigns", value: "\(store.campaigns.count)")
             verticalRule
@@ -260,6 +283,7 @@ struct FilterChip: View {
 
 struct CampaignCard: View {
     let campaign: Campaign
+    let progress: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -299,7 +323,7 @@ struct CampaignCard: View {
             .padding(.horizontal, 14)
 
             // Edge progress (period-aware)
-            EdgeProgress(value: campaign.periodProgress, color: campaign.status.color)
+            EdgeProgress(value: progress, color: campaign.status.color)
         }
         .background(Palette.surface)
         .overlay(Rectangle().stroke(Palette.hairline, lineWidth: 0.5))

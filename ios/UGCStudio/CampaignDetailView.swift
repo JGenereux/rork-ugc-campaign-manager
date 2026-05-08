@@ -25,6 +25,14 @@ struct CampaignDetailView: View {
             .sorted { ($0.postedAt ?? .distantPast) > ($1.postedAt ?? .distantPast) }
     }
 
+    private var targetHitCount: Int {
+        campaign.targetHitCount(using: allCampaignPosts)
+    }
+
+    private var targetProgress: Double {
+        campaign.targetProgress(using: allCampaignPosts)
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
@@ -127,7 +135,7 @@ struct CampaignDetailView: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            EdgeProgress(value: campaign.periodProgress, color: campaign.status.color)
+            EdgeProgress(value: targetProgress, color: campaign.status.color)
         }
         .background(Palette.surface)
         .overlay(Rectangle().stroke(Palette.hairline, lineWidth: 0.5))
@@ -144,8 +152,8 @@ struct CampaignDetailView: View {
     private var targetValue: String {
         switch campaign.schedule {
         case .monthlyRecurring, .oneTime:
-            let pct = Int((campaign.periodProgress * 100).rounded())
-            return "\(campaign.targetVideoCount) · \(pct)%"
+            let pct = Int((targetProgress * 100).rounded())
+            return "\(targetHitCount)/\(campaign.targetVideoCount) · \(pct)%"
         case .ongoing:
             return "Ongoing"
         }
