@@ -143,14 +143,28 @@ final class ApifyService {
         }
     }
 
-    /// Drop stub posts: actors occasionally emit empty placeholders. A post
-    /// must have at least one of: caption, post URL, or any non-zero metric.
+    /// Drop stub posts: actors occasionally emit empty placeholders or
+    /// profile rows. Keep only rows that look like real content URLs or have
+    /// actual metrics attached.
     private func filterMeaningful(_ posts: [SocialPost]) -> [SocialPost] {
         posts.filter { p in
-            let hasCaption = !p.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            let hasURL = (p.postURL?.isEmpty == false)
+            let hasURL = hasLikelyPostURL(p)
             let hasMetric = p.views > 0 || p.likes > 0 || p.comments > 0
-            return hasCaption || hasURL || hasMetric
+            return hasURL || hasMetric
+        }
+    }
+
+    private func hasLikelyPostURL(_ post: SocialPost) -> Bool {
+        guard let url = post.postURL?.lowercased(), !url.isEmpty else { return false }
+        switch post.platform.lowercased() {
+        case PlatformName.instagram:
+            return url.contains("/p/") || url.contains("/reel/")
+        case PlatformName.tiktok:
+            return url.contains("/video/")
+        case PlatformName.youtube:
+            return url.contains("/watch?") || url.contains("/shorts/")
+        default:
+            return false
         }
     }
 
@@ -197,7 +211,10 @@ final class ApifyService {
     private func int(_ any: Any?) -> Int {
         if let n = any as? Int { return n }
         if let n = any as? Double { return Int(n) }
-        if let s = any as? String, let n = Int(s) { return n }
+        if let s = any as? String {
+            let digits = s.replacingOccurrences(of: ",", with: "")
+            if let n = Int(digits) { return n }
+        }
         return 0
     }
 
@@ -221,6 +238,24 @@ final class ApifyService {
         if let d = iso.date(from: s) { return d }
         iso.formatOptions = [.withInternetDateTime]
         return iso.date(from: s)
+    }
+
+    private func fetchYouTubeLikeCount(urlString: String) async -> Int {
+        guard let url = URL(string: urlString) else { return 0 }
+        do {
+            var req = URLRequest(url: url)
+            req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            let (data, response) = try await session.data(for: req)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return 0 }
+            guard let html = String(data: data, encoding: .utf8) else { return 0 }
+            guard let regex = try? NSRegularExpression(pattern: #""likeCount":"([0-9,]+)""#) else { return 0 }
+            let range = NSRange(html.startIndex..<html.endIndex, in: html)
+            guard let match = regex.firstMatch(in: html, range: range),
+                  let countRange = Range(match.range(at: 1), in: html) else { return 0 }
+            return int(String(html[countRange]))
+        } catch {
+            return 0
+        }
     }
 
     // MARK: - Instagram
@@ -375,34 +410,73 @@ final class ApifyService {
             }
         }
 
-        let plays = combined.map { int($0["viewCount"]) }.reduce(0, +)
-        let likesSum = combined.map { int($0["likes"]) }.reduce(0, +)
-        let denom = max(combined.count, 1)
+        func makeSocialPost(from payload: [String: Any]) async -> SocialPost {
+            let postURL = str(payload["url"])
+            let actorLikes = int(payload["likes"])
+            let likes: Int
+            if actorLikes > 0 {
+                likes = actorLikes
+            } else if let postURL {
+                likes = await fetchYouTubeLikeCount(urlString: postURL)
+            } else {
+                likes = 0
+            }
+
+            let pid = str(payload["id"]) ?? postURL ?? UUID().uuidString
+            return SocialPost(
+                id: "youtube|\(handle)|\(pid)",
+                platform: PlatformName.youtube,
+                handle: handle,
+                caption: str(payload["title"]) ?? "",
+                thumbnailURL: str(payload["thumbnailUrl"]) ?? str(payload["thumbnail"]),
+                postURL: postURL,
+                postedAt: dateISO(payload["date"]) ?? date(unix: payload["uploadDate"]),
+                views: int(payload["viewCount"]),
+                likes: likes,
+                comments: int(payload["commentsCount"])
+            )
+        }
+
+        var socialPosts: [SocialPost?] = Array(repeating: nil, count: combined.count)
+        await withTaskGroup(of: (Int, SocialPost).self) { group in
+            var nextIndex = 0
+            let initialCount = min(8, combined.count)
+
+            func enqueue(index: Int) {
+                let payload = combined[index]
+                group.addTask {
+                    let post = await makeSocialPost(from: payload)
+                    return (index, post)
+                }
+            }
+
+            for _ in 0..<initialCount {
+                enqueue(index: nextIndex)
+                nextIndex += 1
+            }
+
+            while let (index, post) = await group.next() {
+                socialPosts[index] = post
+                if nextIndex < combined.count {
+                    enqueue(index: nextIndex)
+                    nextIndex += 1
+                }
+            }
+        }
+
+        let resolvedPosts = socialPosts.compactMap { $0 }
+        let plays = resolvedPosts.reduce(0) { $0 + $1.views }
+        let likesSum = resolvedPosts.reduce(0) { $0 + $1.likes }
+        let denom = max(resolvedPosts.count, 1)
         let avgViews = plays / denom
         let avgLikes = likesSum / denom
         let engagement = followers > 0 ? Double(avgLikes) / Double(followers) * 100 : 0
         let stats = HandleStats(
             platform: PlatformName.youtube, handle: handle,
-            followers: followers, posts: max(postsTotal, combined.count),
+            followers: followers, posts: max(postsTotal, resolvedPosts.count),
             avgViews: avgViews, avgLikes: avgLikes,
             engagementRate: engagement, fetchedAt: Date()
         )
-
-        let socialPosts: [SocialPost] = combined.map { v in
-            let pid = str(v["id"]) ?? str(v["url"]) ?? UUID().uuidString
-            return SocialPost(
-                id: "youtube|\(handle)|\(pid)",
-                platform: PlatformName.youtube,
-                handle: handle,
-                caption: str(v["title"]) ?? "",
-                thumbnailURL: str(v["thumbnailUrl"]) ?? str(v["thumbnail"]),
-                postURL: str(v["url"]),
-                postedAt: dateISO(v["date"]) ?? date(unix: v["uploadDate"]),
-                views: int(v["viewCount"]),
-                likes: int(v["likes"]),
-                comments: int(v["commentsCount"])
-            )
-        }
-        return (stats, socialPosts)
+        return (stats, resolvedPosts)
     }
 }
